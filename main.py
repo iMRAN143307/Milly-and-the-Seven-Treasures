@@ -3,6 +3,7 @@ import os
 import math
 import random
 import asyncio
+from collections import deque
 
 pygame.mixer.pre_init(44100, -16, 2, 4096)
 pygame.init()
@@ -84,7 +85,7 @@ async def main():
     ]
 
     tile_cache = {}
-    trail = [] # Start with an empty trail to avoid visual bugs
+    trail = deque([(10, 10), (10, 20), (10, 30), (10, 40), (10, 50)]) # Start with an empty trail to avoid visual bugs
 
     # --- Arrow Image Loading ---
     try:
@@ -134,7 +135,7 @@ async def main():
             "vy": 0.0,
             "angle": 0.0,
             "rotations": enemy_rotations[i % len(enemy_rotations)],
-            "trail": [],
+            "trail": deque(),
             "grazed": False
         })
 
@@ -255,7 +256,7 @@ async def main():
                     milly_angle = 180
                     camera_x = 0.0
                     camera_y = 0.0
-                    trail = [] # Clean reset for the trail
+                    trail = deque([(10, 10), (10, 20), (10, 30), (10, 40), (10, 50)]) # Clean reset for the trail
 
                     for i, pos in enumerate(enemy_spawns):
                         enemies[i]["x"] = pos[0]
@@ -263,7 +264,7 @@ async def main():
                         enemies[i]["vx"] = 0.0
                         enemies[i]["vy"] = 0.0
                         enemies[i]["angle"] = 0.0
-                        enemies[i]["trail"] = []
+                        enemies[i]["trail"] = deque()
                         enemies[i]["grazed"] = False
 
                     for artifact in artifacts_on_map:
@@ -379,11 +380,30 @@ async def main():
                 if speed > 0.5:
                     if not enemy["trail"] or math.hypot(enemy["trail"][-1][0] - enemy["x"], enemy["trail"][-1][1] - enemy["y"]) > 5:
                         enemy["trail"].append((enemy["x"], enemy["y"]))
+                        if len(enemy["trail"]) > 4000:
+                            enemy_trail_on_screen = enemy["trail"][0]
+                            enemy_trailx, enemy_traily = enemy_trail_on_screen
+                            if (enemy_trailx - camera_x < -50) or (enemy_trailx - camera_x > 1330) or (enemy_traily - camera_y < -50) or (enemy_traily - camera_y > 770):
+                                enemy_trail_off_screen = True
+                            else:
+                                enemy_trail_off_screen = False
 
+                            if enemy_trail_off_screen:
+                                enemy["trail"].popleft()
             # --- Trail Logic ---
             if accel > 0:
                 if not trail or math.hypot(trail[-1][0] - pos_x, trail[-1][1] - pos_y) > 5:
                     trail.append((pos_x, pos_y))
+                    if len(trail) > 4000:
+                        trail_on_screen = trail[0]
+                        trailx, traily = trail_on_screen
+                        if (trailx - camera_x < -50) or (trailx - camera_x > 1330) or (traily - camera_y < -50) or (traily - camera_y > 770):
+                            trail_off_screen = True
+                        else:
+                            trail_off_screen = False
+
+                        if trail_off_screen:
+                            trail.popleft()
 
             # --- Artifact Collision Logic ---
             for artifact in artifacts_on_map:

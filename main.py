@@ -22,6 +22,22 @@ async def main():
     pos_x = 15.0
     pos_y = 50.0
 
+    def random_spawn(x, y, min_dist, max_dist, occupied_spots):
+        min_separation = 550
+        for i in range(500):
+            angle = random.uniform(0, 2*(math.pi))
+            distance = random.uniform(min_dist, max_dist)
+            spawnx = x + (math.cos(angle) * distance)
+            spawny = y + (math.sin(angle) * distance)
+
+            valid = 1
+            for xpos, ypos in occupied_spots:
+                if math.hypot(spawnx - xpos, spawny - ypos) < min_separation:
+                    valid = 0
+                    break
+            if valid != 0:
+                return (spawnx, spawny)
+        return (spawnx, spawny)
     # --- Camera Settings ---
     camera_x = 0.0
     camera_y = 0.0
@@ -29,22 +45,14 @@ async def main():
 
     # --- Asset Loading ---
 
-    # Load Intro Background
-    try:
-        intro_bg = pygame.image.load(os.path.join("introbg.png")).convert()
-        intro_bg = pygame.transform.scale(intro_bg, (1280, 720))
-    except FileNotFoundError:
-        intro_bg = pygame.Surface((1280, 720))
-        intro_bg.fill((20, 30, 45)) # Dark blue fallback background
-
     # --- Intro Centering Math ---
-    intro_size = 400 # Smaller 400x400 square
-    intro_x = (1280 - intro_size) // 2
-    intro_y = 720 - intro_size - 50 # Anchored 50 pixels from the bottom edge
+    intro_size = 720 # Smaller 400x400 square
+    intro_x = 0
+    intro_y = 0
 
     # Load Intro Sequence
     intro_frames = []
-    for i in range(1, 20):
+    for i in range(1, 18):
         try:
             img = pygame.image.load(os.path.join(f"intro{i}.png")).convert_alpha()
             img = pygame.transform.scale(img, (intro_size, intro_size))
@@ -125,8 +133,13 @@ async def main():
 
     enemy_rotations = [rotated_images(enemy) for enemy in enemy_images]
 
+    occupied_spots = set()
+
     enemies = []
-    enemy_spawns = [(800, -600), (-1200, 900), (2000, 1500)]
+    enemy_spawns = []
+    for i in range(3):
+        enemy_spawns.append(random_spawn(pos_x, pos_y, 1250, 4000, occupied_spots))
+        occupied_spots.add(enemy_spawns[i])
     for i, pos in enumerate(enemy_spawns):
         enemies.append({
             "x": pos[0],
@@ -152,15 +165,14 @@ async def main():
             img.fill("pink")
         artifact_images.append(img)
 
-    artifacts_on_map = [
-        {"pos": (1200, -1000), "collected": False, "img": artifact_images[0]},
-        {"pos": (-1500, 1200), "collected": False, "img": artifact_images[1]},
-        {"pos": (2400, 1800), "collected": False, "img": artifact_images[2]},
-        {"pos": (-2200, -1800), "collected": False, "img": artifact_images[3]},
-        {"pos": (3500, 400), "collected": False, "img": artifact_images[4]},
-        {"pos": (400, 3200), "collected": False, "img": artifact_images[5]},
-        {"pos": (4000, -2500), "collected": False, "img": artifact_images[6]},
-    ]
+    artifacts_on_map = []
+    for i in range(7):
+        artifacts_on_map.append({
+            "pos": random_spawn(pos_x, pos_y, 1250, 4000, occupied_spots),
+            "collected": False,
+            "img": artifact_images[i]
+        })
+        occupied_spots.add(artifacts_on_map[i]["pos"])
 
     collected_artifacts = []
     active_effects = []
@@ -180,7 +192,7 @@ async def main():
                 running = False
                 intro_running = False
             elif event.type == pygame.KEYDOWN:
-                if event.key == pygame.K_SPACE:
+                if event.key == pygame.K_RETURN:
                     intro_running = False
 
         if intro_timer >= TIME_PER_FRAME:
@@ -191,8 +203,6 @@ async def main():
                 intro_running = False
 
         if intro_running and running:
-            # Draw the background FIRST
-            screen.blit(intro_bg, (0, 0))
             # Draw the current frame ON TOP, centered dynamically
             screen.blit(intro_frames[intro_frame_index], (intro_x, intro_y))
             pygame.display.flip()
@@ -256,8 +266,12 @@ async def main():
                     milly_angle = 180
                     camera_x = 0.0
                     camera_y = 0.0
-                    trail = deque([(10, 10), (10, 20), (10, 30), (10, 40), (10, 50)]) # Clean reset for the trail
-
+                    trail = deque([(10, 10), (10, 20), (10, 30), (10, 40), (10, 50)])
+                    occupied_spots = set()
+                    enemy_spawns = []
+                    for i in range(3):
+                        enemy_spawns.append(random_spawn(pos_x, pos_y, 1250, 4000, occupied_spots))
+                        occupied_spots.add(enemy_spawns[i])
                     for i, pos in enumerate(enemy_spawns):
                         enemies[i]["x"] = pos[0]
                         enemies[i]["y"] = pos[1]
@@ -268,7 +282,9 @@ async def main():
                         enemies[i]["grazed"] = False
 
                     for artifact in artifacts_on_map:
+                        artifact["pos"] = random_spawn(pos_x,pos_y,1250, 4000, occupied_spots)
                         artifact["collected"] = False
+                        occupied_spots.add(artifact["pos"])
                     collected_artifacts = []
                     active_effects = []
 

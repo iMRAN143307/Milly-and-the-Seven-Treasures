@@ -150,7 +150,8 @@ async def main():
             "rotations": enemy_rotations[i % len(enemy_rotations)],
             "trail": deque(),
             "grazed": False,
-            "type": i+1
+            "type": i+1,
+            "wave": 0.0
         })
 
     # --- Artifact System ---
@@ -370,7 +371,6 @@ async def main():
                     pass
                 elif enemy["type"] == 2: #serpent
                     wave = True
-                    time_wave = 0
                 elif enemy["type"] == 3: #robot
                     increment_45 = True
                 elif enemy["type"] == 4: #glider
@@ -437,17 +437,19 @@ async def main():
                         enemy["angle"] -= turn_speed
                     else:
                         enemy["angle"] = target_angle
-                    if increment_45 == True:
-                        enemy["angle"] = (math.pi / 4) * round(enemy["angle"]/(math.pi / 4))
-                    elif wave == True:
-                        time_wave += 0.02
-                        enemy["angle"] = enemy["angle"] + math.sin(time_wave)
+                    if wave == True:
+                        enemy["wave"] += 0.005
+                        enemy["angle"] = enemy["angle"] + math.sin(enemy["wave"])
                     if apply_turn_penalty and abs(angle_diff) > (math.pi / 2):
                         enemy["vx"] *= 0.85
                         enemy["vy"] *= 0.85
                     else:
-                        enemy["vx"] += math.cos(enemy["angle"]) * accel_rate
-                        enemy["vy"] += math.sin(enemy["angle"]) * accel_rate
+                        move_angle = enemy["angle"]
+                        if increment_45 == True:
+                            move_angle = (math.pi / 4) * round(enemy["angle"] / (math.pi / 4))
+
+                        enemy["vx"] += math.cos(move_angle) * accel_rate
+                        enemy["vy"] += math.sin(move_angle) * accel_rate
                 enemy["vx"] *= friction
                 enemy["vy"] *= friction
                 speed = math.hypot(enemy["vx"], enemy["vy"])

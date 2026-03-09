@@ -19,8 +19,8 @@ async def main():
     milly_angle = 180
 
     # Player's real-world coordinates
-    pos_x = 15.0
-    pos_y = 50.0
+    milly_pos_x = 15.0
+    milly_pos_y = 50.0
 
     def random_spawn(x, y, min_dist, max_dist, occupied_spots):
         min_separation = 550
@@ -76,7 +76,7 @@ async def main():
     milly_rotations = [rotated_images(milly_frame1), rotated_images(milly_frame2)]
 
     current_frame = 0
-    anim_timer = 0.0
+    intro_animation_timer = 0.0
     ANIMATION_SPEED = 0.15
 
     # Load background tiles
@@ -122,7 +122,7 @@ async def main():
 
     # --- Enemy System ---
     enemy_images = []
-    for name in ["e1.png", "e2.png", "e3.png"]:
+    for name in ["e1.png", "e2.png", "e3.png", "e4.png", "e5.png", "e6.png", "e7.png"]:
         try:
             e_img = pygame.image.load(os.path.join(name)).convert_alpha()
             e_img = pygame.transform.scale(e_img, (90, 90))
@@ -137,8 +137,8 @@ async def main():
 
     enemies = []
     enemy_spawns = []
-    for i in range(3):
-        enemy_spawns.append(random_spawn(pos_x, pos_y, 1250, 4000, occupied_spots))
+    for i in range(7):
+        enemy_spawns.append(random_spawn(milly_pos_x, milly_pos_y, 1250, 4000, occupied_spots))
         occupied_spots.add(enemy_spawns[i])
     for i, pos in enumerate(enemy_spawns):
         enemies.append({
@@ -149,7 +149,8 @@ async def main():
             "angle": 0.0,
             "rotations": enemy_rotations[i % len(enemy_rotations)],
             "trail": deque(),
-            "grazed": False
+            "grazed": False,
+            "type": i+1
         })
 
     # --- Artifact System ---
@@ -162,13 +163,13 @@ async def main():
             img = pygame.transform.scale(cropped_img, (50, 50))
         except FileNotFoundError:
             img = pygame.Surface((50, 50))
-            img.fill("pink")
+            img.fill("hotpink1")
         artifact_images.append(img)
 
     artifacts_on_map = []
     for i in range(7):
         artifacts_on_map.append({
-            "pos": random_spawn(pos_x, pos_y, 1250, 4000, occupied_spots),
+            "pos": random_spawn(milly_pos_x, milly_pos_y, 1250, 4000, occupied_spots),
             "collected": False,
             "img": artifact_images[i]
         })
@@ -260,8 +261,8 @@ async def main():
 
                     game_over = False
                     game_won = False
-                    pos_x = 15.0
-                    pos_y = 50.0
+                    milly_pos_x = 15.0
+                    milly_pos_y = 50.0
                     accel = 0
                     milly_angle = 180
                     camera_x = 0.0
@@ -269,8 +270,8 @@ async def main():
                     trail = deque([(10, 10), (10, 20), (10, 30), (10, 40), (10, 50)])
                     occupied_spots = set()
                     enemy_spawns = []
-                    for i in range(3):
-                        enemy_spawns.append(random_spawn(pos_x, pos_y, 1250, 4000, occupied_spots))
+                    for i in range(7):
+                        enemy_spawns.append(random_spawn(milly_pos_x, milly_pos_y, 1250, 4000, occupied_spots))
                         occupied_spots.add(enemy_spawns[i])
                     for i, pos in enumerate(enemy_spawns):
                         enemies[i]["x"] = pos[0]
@@ -282,7 +283,7 @@ async def main():
                         enemies[i]["grazed"] = False
 
                     for artifact in artifacts_on_map:
-                        artifact["pos"] = random_spawn(pos_x,pos_y,1250, 4000, occupied_spots)
+                        artifact["pos"] = random_spawn(milly_pos_x,milly_pos_y,1250, 4000, occupied_spots)
                         artifact["collected"] = False
                         occupied_spots.add(artifact["pos"])
                     collected_artifacts = []
@@ -307,20 +308,20 @@ async def main():
                 milly_angle -= 3
 
             radians = math.radians(milly_angle)
-            pos_x -= math.sin(radians) * accel
-            pos_y -= math.cos(radians) * accel
+            milly_pos_x -= math.sin(radians) * accel
+            milly_pos_y -= math.cos(radians) * accel
 
             if accel > 0.5:
-                anim_timer += dt
-                if anim_timer >= ANIMATION_SPEED:
+                intro_animation_timer += dt
+                if intro_animation_timer >= ANIMATION_SPEED:
                     current_frame = (current_frame + 1) % 2
-                    anim_timer = 0.0
+                    intro_animation_timer = 0.0
             else:
                 current_frame = 0
-                anim_timer = 0.0
+                intro_animation_timer = 0.0
 
-            screen_x = pos_x - camera_x
-            screen_y = pos_y - camera_y
+            screen_x = milly_pos_x - camera_x
+            screen_y = milly_pos_y - camera_y
 
             if screen_x < MARGIN:
                 camera_x -= (MARGIN - screen_x)
@@ -334,7 +335,7 @@ async def main():
 
             # --- Enemy AI & Physics ---
             for enemy in enemies:
-                dist = math.hypot(pos_x - enemy["x"], pos_y - enemy["y"])
+                dist = math.hypot(milly_pos_x - enemy["x"], milly_pos_y - enemy["y"])
 
                 if dist < 65:
                     if not game_over:
@@ -356,43 +357,105 @@ async def main():
                 screen_ey = enemy["y"] - camera_y
                 is_on_screen = (-100 < screen_ex < 1280 + 100) and (-100 < screen_ey < 720 + 100)
 
+                turn_speed = 0.08
+                accel_rate = 0.8
                 max_speed = 15.0
+                friction = 0.96
+                tracking_active = (dist < 800 and is_on_screen)
+                apply_turn_penalty = True
+                increment_45 = False
+                wave = False
+                target_angle = math.atan2(milly_pos_y - enemy["y"], milly_pos_x - enemy["x"])
+                if enemy["type"] == 1: #tracker
+                    pass
+                elif enemy["type"] == 2: #serpent
+                    wave = True
+                    time_wave = 0
+                elif enemy["type"] == 3: #robot
+                    increment_45 = True
+                elif enemy["type"] == 4: #glider
+                    apply_turn_penalty = False
+                elif enemy["type"] == 5: #bull
+                    accel_rate += 0.4
+                    max_speed += 3
+                    friction += 0.02
+                elif enemy["type"] == 6: #sniper
+                    player_vx = -math.sin(math.radians(milly_angle)) * accel
+                    player_vy = -math.cos(math.radians(milly_angle)) * accel
 
-                if dist < 800 and is_on_screen:
-                    target_angle = math.atan2(pos_y - enemy["y"], pos_x - enemy["x"])
+                    future_x = milly_pos_x + (player_vx * 20)
+                    future_y = milly_pos_y + (player_vy * 20)
+
+                    target_angle = math.atan2(future_y - enemy["y"], future_x - enemy["x"])
+
+                    max_speed = 23.0
+                    turn_speed = 0.03
+                    accel_rate = 1.2
+
+                elif enemy["type"] == 7: # guardian
+                    # 1. Find the nearest uncollected artifact
+                    nearest_art_dist = float('inf')
+                    target_artifact = None
+
+                    for artifact in artifacts_on_map:
+                        if not artifact["collected"]:
+                            ax, ay = artifact["pos"]
+                            dist_to_art = math.hypot(ax - enemy["x"], ay - enemy["y"])
+                            if dist_to_art < nearest_art_dist:
+                                nearest_art_dist = dist_to_art
+                                target_artifact = (ax, ay)
+
+                    # 2. Decide what to do based on the artifact's status
+                    if target_artifact:
+                        ax, ay = target_artifact
+                        player_dist_to_art = math.hypot(milly_pos_x - ax, milly_pos_y - ay)
+
+                        if player_dist_to_art < 450:
+                            # STATE 1: ATTACK! Player is too close to the loot.
+                            # target_angle remains aimed at the player (default behavior)
+                            max_speed = 17.0      # Speeds up dramatically
+                            accel_rate = 1.2
+                            turn_speed = 0.15     # Turns very sharply to defend
+                        else:
+                            if nearest_art_dist > 150:
+                                # STATE 2: SEEKING. Player is far, go to the artifact.
+                                target_angle = math.atan2(ay - enemy["y"], ax - enemy["x"])
+                                max_speed = 12.0  # Leisurely speed returning to base
+                                turn_speed = 0.08
+                            else:
+                                # STATE 3: ORBITING. Guarding the artifact.
+                                # Adding math.pi / 2 (90 degrees) makes it circle the point instead of crashing into it
+                                target_angle = math.atan2(ay - enemy["y"], ax - enemy["x"]) + (math.pi / 2)
+                                max_speed = 7.0
+                                turn_speed = 0.1
+                if tracking_active:
                     angle_diff = (target_angle - enemy["angle"])
                     angle_diff = (angle_diff + math.pi) % (2 * math.pi) - math.pi
-
-                    turn_speed = 0.08
-                    accel_rate = 0.8
-
                     if angle_diff > turn_speed:
                         enemy["angle"] += turn_speed
                     elif angle_diff < -turn_speed:
                         enemy["angle"] -= turn_speed
                     else:
                         enemy["angle"] = target_angle
-
-                    if abs(angle_diff) > (math.pi / 2):
+                    if increment_45 == True:
+                        enemy["angle"] = (math.pi / 4) * round(enemy["angle"]/(math.pi / 4))
+                    elif wave == True:
+                        time_wave += 0.02
+                        enemy["angle"] = enemy["angle"] + math.sin(time_wave)
+                    if apply_turn_penalty and abs(angle_diff) > (math.pi / 2):
                         enemy["vx"] *= 0.85
                         enemy["vy"] *= 0.85
                     else:
                         enemy["vx"] += math.cos(enemy["angle"]) * accel_rate
                         enemy["vy"] += math.sin(enemy["angle"]) * accel_rate
-                        enemy["vx"] *= 0.96
-                        enemy["vy"] *= 0.96
-                else:
-                    enemy["vx"] *= 0.96
-                    enemy["vy"] *= 0.96
-
+                enemy["vx"] *= friction
+                enemy["vy"] *= friction
                 speed = math.hypot(enemy["vx"], enemy["vy"])
                 if speed > max_speed:
                     enemy["vx"] = (enemy["vx"] / speed) * max_speed
                     enemy["vy"] = (enemy["vy"] / speed) * max_speed
-
                 enemy["x"] += enemy["vx"]
                 enemy["y"] += enemy["vy"]
-
                 if speed > 0.5:
                     if not enemy["trail"] or math.hypot(enemy["trail"][-1][0] - enemy["x"], enemy["trail"][-1][1] - enemy["y"]) > 5:
                         enemy["trail"].append((enemy["x"], enemy["y"]))
@@ -408,8 +471,8 @@ async def main():
                                 enemy["trail"].popleft()
             # --- Trail Logic ---
             if accel > 0:
-                if not trail or math.hypot(trail[-1][0] - pos_x, trail[-1][1] - pos_y) > 5:
-                    trail.append((pos_x, pos_y))
+                if not trail or math.hypot(trail[-1][0] - milly_pos_x, trail[-1][1] - milly_pos_y) > 5:
+                    trail.append((milly_pos_x, milly_pos_y))
                     if len(trail) > 4000:
                         trail_on_screen = trail[0]
                         trailx, traily = trail_on_screen
@@ -425,7 +488,7 @@ async def main():
             for artifact in artifacts_on_map:
                 if not artifact["collected"]:
                     ax, ay = artifact["pos"]
-                    distance = math.hypot(pos_x - ax, pos_y - ay)
+                    distance = math.hypot(milly_pos_x - ax, milly_pos_y - ay)
                     if distance < 60:
                         artifact["collected"] = True
                         collected_artifacts.append(artifact["img"])
@@ -506,7 +569,7 @@ async def main():
                 pygame.draw.polygon(screen, "white", points, 3)
 
         for enemy in enemies:
-            dist = math.hypot(pos_x - enemy["x"], pos_y - enemy["y"])
+            dist = math.hypot(milly_pos_x - enemy["x"], milly_pos_y - enemy["y"])
             if dist < 1200:
                 screen_ex = enemy["x"] - camera_x
                 screen_ey = enemy["y"] - camera_y
@@ -545,7 +608,7 @@ async def main():
 
         milly_drawing_angle = int(milly_angle) % 360
         milly = milly_rotations[current_frame][milly_drawing_angle]
-        milly_rect = milly.get_rect(center=(round(pos_x - camera_x), round(pos_y - camera_y)))
+        milly_rect = milly.get_rect(center=(round(milly_pos_x - camera_x), round(milly_pos_y - camera_y)))
         screen.blit(milly, milly_rect)
 
         nearest_dist = float('inf')
@@ -553,14 +616,14 @@ async def main():
         for artifact in artifacts_on_map:
             if not artifact["collected"]:
                 ax, ay = artifact["pos"]
-                dist = math.hypot(pos_x - ax, pos_y - ay)
+                dist = math.hypot(milly_pos_x - ax, milly_pos_y - ay)
                 if dist < nearest_dist:
                     nearest_dist = dist
                     nearest_target = (ax, ay)
 
         if nearest_target:
             tx, ty = nearest_target
-            angle_rad = math.atan2(-(ty - pos_y), tx - pos_x)
+            angle_rad = math.atan2(-(ty - milly_pos_y), tx - milly_pos_x)
             angle_deg = math.degrees(angle_rad)
             snapped_angle = int(round(angle_deg / 45.0) * 45.0) % 360
             rotated_arrow = arrow_rotations[snapped_angle]

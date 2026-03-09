@@ -1,0 +1,7 @@
+Tracker - follows the player as best as it can
+Serpent - has a wave pattern added to its tracking
+Robot - only turns in 45 degree increments
+Glider - doesn't slow down while turning
+Bull - faster and has lower traction
+Sniper - aims where the player will be with its dashes
+Guardian - defends artifacts by staying near them until the player approaches, and then dashing
